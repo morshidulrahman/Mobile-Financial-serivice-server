@@ -48,6 +48,7 @@ dbConnect();
 const Database = client.db("MFC");
 const usersCollection = Database.collection("users");
 const UserRequestCollection = Database.collection("userRequest");
+const TransactionCollection = Database.collection("transaction");
 
 app.post("/users", async (req, res) => {
   const userInfo = req.body;
@@ -163,6 +164,45 @@ app.post("/cashin", async (req, res) => {
   } else {
     res.status(400).send("Password is incorrect");
   }
+});
+
+app.post("/cashout", async (req, res) => {
+  const { agentnumber, password, amount, mynumber } = req.body;
+  let cashinamount = parseInt(amount);
+
+  const cashinInfo = {
+    agentnumber,
+    amount: cashinamount,
+    mynumber,
+    status: "pending",
+    transactionType: "cashout",
+  };
+
+  const user = await usersCollection.findOne({ email: mynumber });
+
+  const isMatch = bcrypt.compareSync(password, user.password);
+  if (isMatch) {
+    const casinresult = await UserRequestCollection.insertOne(cashinInfo);
+    res.send(casinresult);
+  } else {
+    res.status(400).send("Password is incorrect");
+  }
+});
+
+app.get("/tranmanage", async (req, res) => {
+  const transactions = await UserRequestCollection.find().toArray();
+  res.send(transactions);
+});
+
+app.post("/transictionlist", async (req, res) => {
+  const { amount, transactionType, mynumber, transaction } = req.body;
+  const result = await TransactionCollection.insertOne({
+    amount,
+    transactionType,
+    mynumber,
+    transaction,
+  });
+  res.send(result);
 });
 
 app.get("/", (req, res) => {
