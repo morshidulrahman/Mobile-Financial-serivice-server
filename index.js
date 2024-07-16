@@ -47,6 +47,7 @@ dbConnect();
 
 const Database = client.db("MFC");
 const usersCollection = Database.collection("users");
+const UserRequestCollection = Database.collection("userRequest");
 
 app.post("/users", async (req, res) => {
   const userInfo = req.body;
@@ -109,6 +110,7 @@ app.post("/logout", (req, res) => {
     });
 });
 
+// send money to others
 app.put("/sendmoney", async (req, res) => {
   const { number, amount, mynumber } = req.body;
 
@@ -138,6 +140,29 @@ app.put("/sendmoney", async (req, res) => {
     { $set: { balance: ReciverBalance } }
   );
   res.send(userresult);
+});
+
+app.post("/cashin", async (req, res) => {
+  const { agentnumber, password, amount, mynumber } = req.body;
+  let cashinamount = parseInt(amount);
+
+  const cashinInfo = {
+    agentnumber,
+    amount: cashinamount,
+    mynumber,
+    status: "pending",
+    transactionType: "cashin",
+  };
+
+  const user = await usersCollection.findOne({ email: mynumber });
+
+  const isMatch = bcrypt.compareSync(password, user.password);
+  if (isMatch) {
+    const casinresult = await UserRequestCollection.insertOne(cashinInfo);
+    res.send(casinresult);
+  } else {
+    res.status(400).send("Password is incorrect");
+  }
 });
 
 app.get("/", (req, res) => {
