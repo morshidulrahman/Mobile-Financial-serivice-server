@@ -205,11 +205,14 @@ app.post("/transictionlist", async (req, res) => {
   res.send(result);
 });
 
+//cash in request
+
 app.put("/transactionlist/:transnumber", async (req, res) => {
   const transnumber = req.params.transnumber;
-  const { amount, agentnumber } = req.body;
+  const { amount, agentnumber, transactionType } = req.body;
   const user = await usersCollection.findOne({ email: transnumber });
   const agent = await usersCollection.findOne({ email: agentnumber });
+
   const updatedBalance = parseInt(user.balance) + parseInt(amount);
   const agentupdatedBalance = parseInt(agent.balance) - parseInt(amount);
 
@@ -223,7 +226,31 @@ app.put("/transactionlist/:transnumber", async (req, res) => {
     { $set: { balance: agentupdatedBalance } }
   );
 
-  console.log(userresult, agentresult);
+  res.send(userresult);
+});
+
+app.put("/transactioncashout/:transnumber", async (req, res) => {
+  const transnumber = req.params.transnumber;
+  const { amount, agentnumber } = req.body;
+  const fee = parseFloat(amount) * 0.015;
+
+  const user = await usersCollection.findOne({ email: transnumber });
+  const agent = await usersCollection.findOne({ email: agentnumber });
+
+  const updatedBalance = parseInt(user.balance) - parseInt(amount) - fee;
+  const agentupdatedBalance = parseInt(agent.balance) + parseInt(amount) + fee;
+
+  const userresult = await usersCollection.updateOne(
+    { email: transnumber },
+    { $set: { balance: updatedBalance } }
+  );
+
+  const agentresult = await usersCollection.updateOne(
+    { email: agentnumber },
+    { $set: { balance: agentupdatedBalance } }
+  );
+
+  res.send(userresult);
 });
 
 app.get("/", (req, res) => {
