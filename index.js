@@ -46,13 +46,19 @@ const dbConnect = async () => {
 dbConnect();
 
 const Database = client.db("MFC");
-const appertmentsCollection = Database.collection("users");
+const usersCollection = Database.collection("users");
 
 app.post("/users", async (req, res) => {
   const userInfo = req.body;
+  const existingUser = await usersCollection.findOne({ email: userInfo.email });
+
+  if (existingUser) {
+    return res.send({ message: "Email already exists" });
+  }
+
   const hashedPassword = await bcrypt.hash(userInfo.password, 10);
   userInfo.password = hashedPassword;
-  const result = await appertmentsCollection.insertOne({
+  const result = await usersCollection.insertOne({
     ...userInfo,
     password: hashedPassword,
     status: "pending",
@@ -64,7 +70,7 @@ app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await appertmentsCollection.findOne({ email });
+    const user = await usersCollection.findOne({ email });
     if (user) {
       const isMatch = bcrypt.compareSync(password, user.password);
       if (isMatch) {
@@ -77,8 +83,9 @@ app.post("/login", async (req, res) => {
             expiresIn: "365d",
           }
         );
-        res.cookie("token", token, cookieOptions).send({
+        res.status(200).cookie("token", token, cookieOptions).send({
           success: "true",
+          status: "200",
         });
       } else {
         res.status(400).send("Password is incorrect");
@@ -87,7 +94,6 @@ app.post("/login", async (req, res) => {
       res.status(400).send("User does not exist");
     }
   } catch (error) {
-    console.error("Error logging in user:", error);
     res.status(500).send("Internal server error");
   }
 });
@@ -101,6 +107,37 @@ app.post("/logout", (req, res) => {
     .send({
       success: "true",
     });
+});
+
+app.put("/sendmoney", async (req, res) => {
+  const { number, amount, mynumber } = req.body;
+
+  let sendamount = parseInt(amount);
+
+  const sender = await usersCollection.findOne({ email: mynumber });
+  const reciver = await usersCollection.findOne({ email: number });
+
+  if (!sender || !reciver) {
+    return res.status(404).send("User or Agent not found");
+  }
+  if (amount >= 100) {
+    sendamount = sendamount + 5;
+  }
+
+  console.log(sendamount);
+  // Update balances
+  const SenderUserBalance = parseInt(sender.balance) - parseInt(amount);
+  const ReciverBalance = parseInt(reciver.balance) + parseInt(amount);
+
+  const userresult = await usersCollection.updateOne(
+    { email: sender.email },
+    { $set: { balance: SenderUserBalance } }
+  );
+  const reciverresult = await usersCollection.updateOne(
+    { email: reciver.email },
+    { $set: { balance: ReciverBalance } }
+  );
+  res.send(userresult);
 });
 
 app.get("/", (req, res) => {
